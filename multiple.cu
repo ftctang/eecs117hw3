@@ -58,45 +58,58 @@ dtype reduce_cpu(dtype *data, int n) {
   return sum;
 }
 
+
 __global__ void
 kernel5(dtype *g_idata, dtype *g_odata, unsigned int n)
 {
   __shared__  dtype scratch[MAX_THREADS];
 
   unsigned int blocksize = blockDim.x; 
-  unsigned int i = blockIdx.x * blocksize  * 2 + threadIdx.x;
-  unsigned int gridsize = blocksize * 2 * gridDim.x;
-  scratch[threadIdx.x] = 0 ;
+  unsigned int i = blockIdx.x * (blocksize * 2) + threadIdx.x;
+  unsigned int gridsize = gridDim.x *(blocksize * 2) ;
+  unsigned int tid = threadIdx.x;
+  scratch[tid] = 0 ;
   while(i < n) {
-    scratch[threadIdx.x] = g_idata[i] + g_idata[i + blocksize];
+    scratch[tid] += g_idata[i] + g_idata[i + blocksize];
     i += gridsize;
      
   } 
   __syncthreads ();
   
   if(blocksize >= 256){
-    if(threadIdx.x < 128){
-      scratch[threadIdx.x] += scratch[threadIdx.x + 128];
+    if(tid  < 128){
+      scratch[tid] += scratch[tid + 128];
       }
-      __syncthreads ();
+      __syncthreads();
   }
   
   
   if(blocksize >= 128){
-    if(threadIdx.x < 64){
-      scratch[threadIdx.x] += scratch[threadIdx.x + 64];
+    if(tid  < 64){
+      scratch[tid ] += scratch[tid + 64];
       }
-      __syncthreads ();
+      __syncthreads();
   }
   
-  if(threadIdx.x < 32){
-    
-    scratch[threadIdx.x] += scratch[threadIdx.x + 32];
-    scratch[threadIdx.x] += scratch[threadIdx.x + 16];
-    scratch[threadIdx.x] += scratch[threadIdx.x + 8];
-    scratch[threadIdx.x] += scratch[threadIdx.x + 4];
-    scratch[threadIdx.x] += scratch[threadIdx.x + 2];
-    scratch[threadIdx.x] += scratch[threadIdx.x + 1];
+  if(tid  < 32){
+    if(blocksize >= 64){
+      scratch[tid ] += scratch[tid  + 32];
+    }
+    if(blocksize >= 32){
+      scratch[tid ] += scratch[tid + 16];
+      }
+    if(blocksize >= 16){
+      scratch[tid ] += scratch[tid  + 8];
+      }
+    if(blocksize >= 8){
+      scratch[tid ] += scratch[tid  + 4];
+      }
+    if(blocksize >= 4){
+      scratch[tid ] += scratch[tid  + 2];
+      }
+    if(blocksize >= 2){
+      scratch[tid ] += scratch[tid + 1];
+    }
                   
   }
 
