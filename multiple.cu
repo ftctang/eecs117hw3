@@ -46,22 +46,63 @@ void getNumBlocksAndThreads(int whichKernel, int n, int maxBlocks, int maxThread
 
 /* special type of reduction to account for floating point error */
 dtype reduce_cpu(dtype *data, int n) {
-    dtype sum = data[0];
-    dtype c = (dtype)0.0;
-    for (int i = 1; i < n; i++)
+  dtype sum = data[0];
+  dtype c = (dtype)0.0;
+  for (int i = 1; i < n; i++)
     {
-        dtype y = data[i] - c;
-        dtype t = sum + y;
-        c = (t - sum) - y;
-        sum = t;
+      dtype y = data[i] - c;
+      dtype t = sum + y;
+      c = (t - sum) - y;
+      sum = t;
     }
-    return sum;
+  return sum;
 }
-
 
 __global__ void
 kernel5(dtype *g_idata, dtype *g_odata, unsigned int n)
 {
+  __shared__  dtype scratch[MAX_THREADS];
+
+  unsigned int blocksize = blockDim.x; 
+  unsigned int i = blockIdx.x * blocksize  * 2 + threadIdx.x;
+  unsigned int gridsize = blocksize * 2 * gridDim.x;
+  scratch[threadIdx.x] = 0 ;
+  while(i < n) {
+    scratch[threadIdx.x] = g_idata[i] + g_idata[i + blocksize];
+    i += gridsize;
+     
+  } 
+  __syncthreads ();
+  
+  if(blocksize >= 256){
+    if(threadIdx.x < 128){
+      scratch[threadIdx.x] += scratch[threadIdx.x + 128];
+      }
+      __syncthreads ();
+  }
+  
+  
+  if(blocksize >= 128){
+    if(threadIdx.x < 64){
+      scratch[threadIdx.x] += scratch[threadIdx.x + 64];
+      }
+      __syncthreads ();
+  }
+  
+  if(threadIdx.x < 32){
+    
+    scratch[threadIdx.x] += scratch[threadIdx.x + 32];
+    scratch[threadIdx.x] += scratch[threadIdx.x + 16];
+    scratch[threadIdx.x] += scratch[threadIdx.x + 8];
+    scratch[threadIdx.x] += scratch[threadIdx.x + 4];
+    scratch[threadIdx.x] += scratch[threadIdx.x + 2];
+    scratch[threadIdx.x] += scratch[threadIdx.x + 1];
+                  
+  }
+
+  if(threadIdx.x == 0) {
+    g_odata[blockIdx.x] = scratch[0];
+  }
 }
 
 

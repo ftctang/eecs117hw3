@@ -59,10 +59,16 @@ dtype reduce_cpu(dtype *data, int n) {
 }
 
 __device__ void
-warpReduce(volatile dtype* sdata , int tid)
-{
-    sdata[tid] += sdata[tid + 32];
-    sdata[tid] += sdata[tid + 16];
+warpReduce(volatile dtype* sdata , int tid, int n)
+{   
+    if(n > 64){
+      sdata[tid] += sdata[tid + 32];
+    }
+    
+    if(n > 32){
+      sdata[tid] += sdata[tid + 16];
+    }
+    
     sdata[tid] += sdata[tid + 8];
     sdata[tid] += sdata[tid + 4];
     sdata[tid] += sdata[tid + 2];
@@ -101,7 +107,7 @@ kernel4(dtype *g_idata, dtype *g_odata, unsigned int n)
 //    scratch[threadIdx.x] += scratch[threadIdx.x + 4];
 //    scratch[threadIdx.x] += scratch[threadIdx.x + 2];
 //    scratch[threadIdx.x] += scratch[threadIdx.x + 1];
-    warpReduce(scratch ,threadIdx.x);
+    warpReduce(scratch ,threadIdx.x, n);
                   
   }
 
